@@ -4,3 +4,4 @@ __pycache__/
 *.csv
 # If you decide to hide your API key in a separate file later:
 .env
+Gym_Progress.xlsx
