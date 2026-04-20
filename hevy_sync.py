@@ -4,8 +4,9 @@ import pandas as pd
 from datetime import datetime
 
 # --- CONFIGURATION ---
-# We use os.getenv to pull the key from your ~/.bashrc so it's never typed in the code
-API_KEY = os.getenv('43c35ea3-c75c-4905-943d-2744b5eadd25')
+# This pulls the secret key from your Linux system (~/.bashrc) 
+# so it never shows up as plain text on GitHub.
+API_KEY = os.getenv('HEVY_API_KEY')
 BASE_URL = 'https://api.hevyapp.com/v1/workouts'
 
 HEADERS = {
@@ -15,7 +16,7 @@ HEADERS = {
 
 def fetch_workouts():
     if not API_KEY:
-        print("Error: HEVY_API_KEY not found in environment variables.")
+        print("Error: HEVY_API_KEY not found. Run 'source ~/.bashrc' or check your config.")
         return []
     
     print("Connecting to Hevy...")
@@ -36,11 +37,12 @@ def run_pipeline():
 
     all_sets = []
     for w in workouts:
+        # Convert ISO timestamp to a cleaner date format
         date_obj = datetime.fromisoformat(w['start_time'].replace('Z', ''))
         date_str = date_obj.strftime('%m/%d')
         for exercise in w['exercises']:
             for s in exercise['sets']:
-                # Convert KG to LBS and round to 1 decimal place
+                # Pull raw KG from Hevy, convert to LBS, and round
                 raw_kg = s.get('weight_kg', 0) or 0
                 lbs = round(raw_kg * 2.20462, 1)
                 
@@ -54,14 +56,15 @@ def run_pipeline():
 
     df = pd.DataFrame(all_sets)
 
-    # Logic for "Best Set" per exercise per day
+    # Logic for "Best Set" (Highest Weight, then Reps) per exercise per day
     top_sets = df.sort_values(['Weight', 'Reps'], ascending=False).drop_duplicates(['Exercise', 'Date'])
     top_sets = top_sets.sort_values(['Exercise', 'Date_Obj'])
 
-    # Shifting data to get "Last Workout" stats
+    # Shifting data to compare against your previous performance
     top_sets['Last Weight'] = top_sets.groupby('Exercise')['Weight'].shift(1)
     top_sets['Last Reps'] = top_sets.groupby('Exercise')['Reps'].shift(1)
     
+    # --- TERMINAL DISPLAY ---
     print(f"\n{'='*70}")
     print(f" HEVY PERFORMANCE PIPELINE (LBS) - {datetime.now().strftime('%Y-%m-%d')} ")
     print(f"{'='*70}")
@@ -69,8 +72,9 @@ def run_pipeline():
     display_cols = ['Date', 'Exercise', 'Weight', 'Last Weight', 'Reps', 'Last Reps']
     print(top_sets[display_cols].tail(15).to_string(index=False))
 
-    # Summary of most recent session
+    # --- LATEST SESSION SUMMARY ---
     recent = workouts[0]
+    # Calculate volume in lbs for the most recent session
     session_vol = sum((s.get('weight_kg', 0) or 0) * 2.20462 * (s.get('reps', 0) or 0) for e in recent['exercises'] for s in e['sets'])
     print(f"\n--- LATEST SESSION: {recent['title']} ---")
     print(f"• Session Volume: {round(session_vol):,} lbs")
