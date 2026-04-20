@@ -1,9 +1,11 @@
+import os
 import requests
 import pandas as pd
 from datetime import datetime
 
 # --- CONFIGURATION ---
-API_KEY = '2d885d6b-bea6-43c6-a40d-f7fb45348644'
+# We use os.getenv to pull the key from your ~/.bashrc so it's never typed in the code
+API_KEY = os.getenv('43c35ea3-c75c-4905-943d-2744b5eadd25')
 BASE_URL = 'https://api.hevyapp.com/v1/workouts'
 
 HEADERS = {
@@ -12,13 +14,17 @@ HEADERS = {
 }
 
 def fetch_workouts():
+    if not API_KEY:
+        print("Error: HEVY_API_KEY not found in environment variables.")
+        return []
+    
     print("Connecting to Hevy...")
     try:
         response = requests.get(BASE_URL, headers=HEADERS)
         if response.status_code == 200:
             return response.json()['workouts']
         else:
-            print(f"Error {response.status_code}")
+            print(f"Error {response.status_code}: {response.text}")
             return []
     except Exception as e:
         print(f"Connection failed: {e}")
